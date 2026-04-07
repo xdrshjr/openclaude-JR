@@ -16,7 +16,29 @@ import { getWorkload } from './workloadContext.js'
 
 // WARNING: We rely on `claude-cli` in the user agent for log filtering.
 // Please do NOT change this without making sure that logging also gets updated!
-export function getUserAgent(): string {
+export function shouldUseClaudeCodeUserAgent(
+  baseUrl: string | undefined,
+): boolean {
+  if (!baseUrl) {
+    return false
+  }
+
+  try {
+    const url = new URL(baseUrl)
+    return (
+      url.hostname.toLowerCase() === 'api.kimi.com' &&
+      /^\/coding(?:\/|$)/i.test(url.pathname)
+    )
+  } catch {
+    return false
+  }
+}
+
+export function getUserAgent(baseUrl?: string): string {
+  if (shouldUseClaudeCodeUserAgent(baseUrl)) {
+    return getClaudeCodeUserAgent()
+  }
+
   const agentSdkVersion = process.env.CLAUDE_AGENT_SDK_VERSION
     ? `, agent-sdk/${process.env.CLAUDE_AGENT_SDK_VERSION}`
     : ''
