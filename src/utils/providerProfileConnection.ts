@@ -11,7 +11,12 @@ type ValidateModelFn = (
 async function defaultValidateModel(
   model: string,
 ): Promise<{ valid: boolean; error?: string }> {
-  const { validateModel } = await import('./model/validateModel.js')
+  const { clearValidModelCache, validateModel } = await import(
+    './model/validateModel.js'
+  )
+  // Clear the cache so the request actually hits the new provider endpoint
+  // instead of returning a stale success from a previous provider.
+  clearValidModelCache()
   return validateModel(model)
 }
 
@@ -27,6 +32,14 @@ function setOptionalEnvValue(key: string, value: string | undefined): void {
     delete process.env[key]
   }
 }
+
+// OAuth-related env vars that must be suppressed during connection tests
+// so that the entered API key is actually validated instead of being
+// bypassed by an active Claude.ai subscriber session.
+const OAUTH_ENV_KEYS = [
+  'CLAUDE_CODE_OAUTH_TOKEN',
+  'CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR',
+]
 
 function deleteEnvKeys(keys: string[]): void {
   for (const key of keys) {
@@ -106,6 +119,10 @@ export async function testProviderProfileConnection(
   const previousEnv = { ...process.env }
 
   try {
+    // Suppress OAuth tokens so getAnthropicClient() falls through to
+    // API-key auth, ensuring the entered key is actually exercised.
+    deleteEnvKeys(OAUTH_ENV_KEYS)
+
     applyProfileToProcessEnv({
       ...input,
       baseUrl,
