@@ -6,10 +6,12 @@ type ConnectionTestResult =
 
 type ValidateModelFn = (
   model: string,
+  options?: { signal?: AbortSignal },
 ) => Promise<{ valid: boolean; error?: string }>
 
 async function defaultValidateModel(
   model: string,
+  options?: { signal?: AbortSignal },
 ): Promise<{ valid: boolean; error?: string }> {
   const { clearValidModelCache, validateModel } = await import(
     './model/validateModel.js'
@@ -17,7 +19,7 @@ async function defaultValidateModel(
   // Clear the cache so the request actually hits the new provider endpoint
   // instead of returning a stale success from a previous provider.
   clearValidModelCache()
-  return validateModel(model)
+  return validateModel(model, options)
 }
 
 function trimValue(value: string | undefined): string {
@@ -36,6 +38,10 @@ function setOptionalEnvValue(key: string, value: string | undefined): void {
 // OAuth-related env vars that must be suppressed during connection tests
 // so that the entered API key is actually validated instead of being
 // bypassed by an active Claude.ai subscriber session.
+//
+// These correspond to the token sources checked in auth.ts
+// (getAuthTokenSource / getClaudeAIOAuthTokens).  If a new OAuth env var
+// is added there, it should be added here as well.
 const OAUTH_ENV_KEYS = [
   'CLAUDE_CODE_OAUTH_TOKEN',
   'CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR',
@@ -100,10 +106,19 @@ function applyProfileToProcessEnv(input: ProviderProfileInput): void {
   delete process.env.ANTHROPIC_API_KEY
 }
 
+/**
+ * Test a provider profile by temporarily applying its env vars and running
+ * a minimal API validation request.
+ *
+ * **Not safe for concurrent use** — mutates `process.env` for the duration
+ * of the test and restores it in a `finally` block.  Only one connection
+ * test should be in-flight at a time (enforced by the UI via testEpochRef).
+ */
 export async function testProviderProfileConnection(
   input: ProviderProfileInput,
   options?: {
     validateModel?: ValidateModelFn
+    signal?: AbortSignal
   },
 ): Promise<ConnectionTestResult> {
   const baseUrl = trimValue(input.baseUrl)
@@ -130,7 +145,8 @@ export async function testProviderProfileConnection(
       apiKey: trimValue(input.apiKey),
     })
 
-    const result = await (options?.validateModel ?? defaultValidateModel)(model)
+    const validate = options?.validateModel ?? defaultValidateModel
+    const result = await validate(model, { signal: options?.signal })
     if (!result.valid) {
       return {
         ok: false,

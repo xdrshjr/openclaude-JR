@@ -217,6 +217,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
   const [cursorOffset, setCursorOffset] = React.useState(0)
   const [isTestingConnection, setIsTestingConnection] = React.useState(false)
   const testEpochRef = React.useRef(0)
+  const testAbortRef = React.useRef<AbortController | null>(null)
   const [statusMessage, setStatusMessage] = React.useState<string | undefined>()
   const [errorMessage, setErrorMessage] = React.useState<string | undefined>()
 
@@ -465,6 +466,8 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
 
   async function testAndPersistDraft(): Promise<void> {
     const epoch = ++testEpochRef.current
+    const abort = new AbortController()
+    testAbortRef.current = abort
     setIsTestingConnection(true)
     setErrorMessage(undefined)
 
@@ -476,7 +479,9 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
       apiKey: draft.apiKey,
     }
 
-    const result = await testProviderProfileConnection(payload)
+    const result = await testProviderProfileConnection(payload, {
+      signal: abort.signal,
+    })
 
     // Discard the result if the user navigated away or started a new test.
     if (epoch !== testEpochRef.current) return
@@ -523,7 +528,8 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
 
     if (screen === 'confirm-save') {
       if (isTestingConnection) {
-        // Invalidate the in-flight test so its result is discarded.
+        // Abort the in-flight request and invalidate its result.
+        testAbortRef.current?.abort()
         ++testEpochRef.current
         setIsTestingConnection(false)
       }

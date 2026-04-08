@@ -26,9 +26,12 @@ export function clearValidModelCache(): void {
 
 /**
  * Validates a model by attempting an actual API call.
+ * An optional AbortSignal can be passed to cancel the request early
+ * (e.g. when the user presses Esc during a connection test).
  */
 export async function validateModel(
   model: string,
+  options?: { signal?: AbortSignal },
 ): Promise<{ valid: boolean; error?: string }> {
   const normalizedModel = model.trim()
 
@@ -87,6 +90,7 @@ export async function validateModel(
       model: normalizedModel,
       max_tokens: 1,
       maxRetries: 0,
+      signal: options?.signal,
       querySource: 'model_validation',
       messages: [
         {
