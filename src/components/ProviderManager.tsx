@@ -516,6 +516,9 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
     setErrorMessage(undefined)
 
     if (screen === 'confirm-save') {
+      if (isTestingConnection) {
+        return
+      }
       setScreen('form')
       return
     }

@@ -9,7 +9,7 @@ function restoreEnv(): void {
 }
 
 async function importFreshModule() {
-  return import(`./providerProfileConnection.ts?ts=${Date.now()}-${Math.random()}`)
+  return import(`./providerProfileConnection.js?ts=${Date.now()}-${Math.random()}`)
 }
 
 describe('testProviderProfileConnection', () => {

@@ -359,6 +359,9 @@ describe('getProviderPresetDefaults', () => {
   })
 
   test('custom preset can default to anthropic mode', async () => {
+    delete process.env.ANTHROPIC_BASE_URL
+    delete process.env.ANTHROPIC_MODEL
+    delete process.env.ANTHROPIC_API_KEY
     const { getProviderPresetDefaults } = await importFreshProviderProfileModules()
 
     const defaults = getProviderPresetDefaults('custom', {
